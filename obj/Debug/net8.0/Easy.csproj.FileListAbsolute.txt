@@ -1,0 +1,14 @@
+D:\PROJECTS\Easy\bin\Debug\net8.0\Easy.exe
+D:\PROJECTS\Easy\bin\Debug\net8.0\Easy.deps.json
+D:\PROJECTS\Easy\bin\Debug\net8.0\Easy.runtimeconfig.json
+D:\PROJECTS\Easy\bin\Debug\net8.0\Easy.dll
+D:\PROJECTS\Easy\bin\Debug\net8.0\Easy.pdb
+D:\PROJECTS\Easy\obj\Debug\net8.0\Easy.GeneratedMSBuildEditorConfig.editorconfig
+D:\PROJECTS\Easy\obj\Debug\net8.0\Easy.AssemblyInfoInputs.cache
+D:\PROJECTS\Easy\obj\Debug\net8.0\Easy.AssemblyInfo.cs
+D:\PROJECTS\Easy\obj\Debug\net8.0\Easy.csproj.CoreCompileInputs.cache
+D:\PROJECTS\Easy\obj\Debug\net8.0\Easy.dll
+D:\PROJECTS\Easy\obj\Debug\net8.0\refint\Easy.dll
+D:\PROJECTS\Easy\obj\Debug\net8.0\Easy.pdb
+D:\PROJECTS\Easy\obj\Debug\net8.0\Easy.genruntimeconfig.cache
+D:\PROJECTS\Easy\obj\Debug\net8.0\ref\Easy.dll
