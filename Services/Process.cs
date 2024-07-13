@@ -18,7 +18,7 @@ namespace Easy.Services
             {
                 if (args.Data != null)
                 {
-                    Console.WriteLine(args.Data);
+                    //Console.WriteLine(args.Data);
                 }
             };
 
@@ -26,7 +26,7 @@ namespace Easy.Services
             {
                 if (args.Data != null)
                 {
-                    Console.WriteLine($"ERROR: {args.Data}");
+                    //Console.WriteLine($"ERROR: {args.Data}");
                 }
             };
 
@@ -36,7 +36,7 @@ namespace Easy.Services
             {
                 if (writer.BaseStream.CanWrite)
                 {
-                    Console.WriteLine(message ?? "\n");
+                    //Console.WriteLine(message ?? "\n");
                     writer.WriteLine(command);
                 }
             }
@@ -45,7 +45,7 @@ namespace Easy.Services
             process.BeginErrorReadLine();
             process.WaitForExit();
 
-            Console.WriteLine($"Command exited with code {process.ExitCode}");
+            //Console.WriteLine($"Command exited with code {process.ExitCode}");
         }
     }
 }

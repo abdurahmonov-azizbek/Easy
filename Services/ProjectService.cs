@@ -1,6 +1,7 @@
 ﻿using Easy.Constants;
 using Easy.Extensions;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Text;
 
 namespace Easy.Services
@@ -19,25 +20,19 @@ namespace Easy.Services
         private readonly string projectFolderPath;
         private readonly string header;
         private readonly string connectionString;
-        private readonly List<Type> models;
-        Dictionary<Type, string> modelsNameProp;
 
         public ProjectService(
             string projectName,
             string modelsFolderPath,
             string projectFolderPath,
             string header,
-            string connectionString,
-            List<Type> models,
-            Dictionary<Type, string> modelsNameProp)
+            string connectionString)
         {
             this.projectName = projectName;
             this.modelsFolderPath = modelsFolderPath;
             this.projectFolderPath = projectFolderPath;
             this.header = header;
             this.connectionString = connectionString;
-            this.models = models;
-            this.modelsNameProp = modelsNameProp;
 
             this.apiProjectName = $"{projectName}.Api";
             this.testProjectName = $"{apiProjectName}.Tests.Unit";
@@ -101,15 +96,35 @@ namespace Easy.Services
                 }
 
                 var content = File.ReadAllLines(existModelPath).ToList();
+
+                string contentString = string.Empty;
                 var @namespace = $"namespace {apiProjectName}.{StringConstants.Models}.{modelNamePlural}";
-                content.RemoveAt(0);
-                content.Insert(0, @namespace);
-                content.Insert(0, $"{this.header}\n");
-                var contentString = string.Empty;
-                foreach (var line in content)
+                
+                if (content.First().Trim().Contains("namespace"))
                 {
-                    contentString += line + "\n";
+                    content.RemoveAt(0);
+                    content.Insert(0, @namespace);
+                    content.Insert(0, $"{this.header}\n");
+                    contentString = string.Empty;
+                    foreach (var line in content)
+                    {
+                        contentString += line + "\n";
+                    }
                 }
+                else
+                {
+                    contentString = string.Empty;
+                    contentString += this.header + "\n\n";
+                    contentString += @namespace + "\n";
+                    contentString += "{\n";
+                    foreach(var line in content)
+                    {
+                        contentString += $"\t{line}\n";
+                    }
+                    contentString += "}";
+
+                }
+
                 var modelFilePath = Path.Combine(modelsPath, modelName.AddCSharpExtension());
                 FileStream fileStream;
                 File.Create(modelFilePath).Close();
@@ -405,16 +420,15 @@ namespace Easy.Services
                 var validationFS = File.Open(validationPath, FileMode.Open, FileAccess.ReadWrite);
 
                 var validations = string.Empty;
-                var modelType = models.FirstOrDefault(type => type.Name == modelName)
-                    ?? throw new InvalidOperationException($"Type not found for model - {modelName}");
+                var properties = Tokenizator.GetProperties(modelPath);
 
-                foreach (var prop in modelType.GetProperties())
+                foreach (var prop in properties)
                 {
-                    if (prop.PropertyType == typeof(string) ||
-                       prop.PropertyType == typeof(Guid) ||
-                       prop.PropertyType == typeof(DateTimeOffset))
+                    if (prop.Value == "string" ||
+                       prop.Value == "Guid" ||
+                       prop.Value == "DateTimeOffset")
                     {
-                        validations += $"\t\t\t\t(Rule: IsInvalid([[modelName]].{prop.Name}), Parameter: nameof([[ModelName]].{prop.Name})),\n";
+                        validations += $"\t\t\t\t(Rule: IsInvalid([[modelName]].{prop.Key}), Parameter: nameof([[ModelName]].{prop.Key})),\n";
                     }
                 }
 
@@ -526,23 +540,25 @@ namespace Easy.Services
                 AddLogicTests(modelName, modelNamePlural, modelTestsPath);
                 AddExceptionsTests(modelName, modelNamePlural, modelTestsPath);
 
-                var check = modelsNameProp.First(x => x.Key.Name == modelName);
-                if (check.Value != string.Empty)
+                var properties = Tokenizator.GetProperties(modelPath);
+                var nameProperty = Tokenizator.GetNamePropery(properties);
+
+                if (nameProperty.Property != string.Empty && nameProperty.Type != string.Empty)
                 {
-                    AddValidationsTests(modelName, modelNamePlural, modelTestsPath);
+                    AddValidationsTests(modelName, modelNamePlural, modelTestsPath, properties);
                 }
             }
         }
 
-        private void AddValidationsTests(string modelName, string modelNamePlural, string modelTestsPath)
+        private void AddValidationsTests(string modelName, string modelNamePlural, string modelTestsPath, Dictionary<string, string> properties)
         {
-            AddValidationsTestAdd(modelName, modelNamePlural, modelTestsPath);
-            AddValidationsTestModify(modelName, modelNamePlural, modelTestsPath);
-            AddValidationsTestRemoveById(modelName, modelNamePlural, modelTestsPath);
-            AddValidationsTestRetrieveById(modelName, modelNamePlural, modelTestsPath);
+            AddValidationsTestAdd(modelName, modelNamePlural, modelTestsPath, properties);
+            AddValidationsTestModify(modelName, modelNamePlural, modelTestsPath, properties);
+            AddValidationsTestRemoveById(modelName, modelNamePlural, modelTestsPath, properties);
+            AddValidationsTestRetrieveById(modelName, modelNamePlural, modelTestsPath, properties);
         }
 
-        private void AddValidationsTestRetrieveById(string modelName, string modelNamePlural, string modelTestsPath)
+        private void AddValidationsTestRetrieveById(string modelName, string modelNamePlural, string modelTestsPath, Dictionary<string, string> properties)
         {
             var content = File.ReadAllText(
                Path.Combine("..", "..", "..", StringConstants.Source, StringConstants.Tests, StringConstants.Validations, "EntityServiceTests.Validations.RetrieveById.txt"))
@@ -562,7 +578,7 @@ namespace Easy.Services
             fileStream.Close();
         }
 
-        private void AddValidationsTestRemoveById(string modelName, string modelNamePlural, string modelTestsPath)
+        private void AddValidationsTestRemoveById(string modelName, string modelNamePlural, string modelTestsPath, Dictionary<string, string> properties)
         {
             var content = File.ReadAllText(
                 Path.Combine("..", "..", "..", StringConstants.Source, StringConstants.Tests, StringConstants.Validations, "EntityServiceTests.Validations.RemoveById.txt"))
@@ -582,41 +598,37 @@ namespace Easy.Services
             fileStream.Close();
         }
 
-        private void AddValidationsTestModify(string modelName, string modelNamePlural, string modelTestsPath)
+        private void AddValidationsTestModify(string modelName, string modelNamePlural, string modelTestsPath, Dictionary<string, string> properties)
         {
             var filePath = Path.Combine(modelTestsPath, $"{modelName}ServiceTests.Validations.Modify.cs");
             File.Create(filePath).Close();
             var fileStream = File.Open(filePath, FileMode.Open, FileAccess.Write);
 
-            var modelType = models.FirstOrDefault(type => type.Name == modelName)
-                ?? throw new ArgumentException();
-
             string validations = string.Empty;
-            var modelProperties = modelType.GetProperties();
-            foreach (var property in modelProperties)
+            foreach (var property in properties)
             {
-                if (property.PropertyType == typeof(Guid))
+                if (property.Value == "Guid")
                 {
                     validations += $"\t\t\t\tinvalid[[ModelName]]Exception.AddData(\n";
-                    validations += $"\t\t\t\t\tkey: nameof([[ModelName]].{property.Name}),\n";
+                    validations += $"\t\t\t\t\tkey: nameof([[ModelName]].{property.Key}),\n";
                     validations += $"\t\t\t\t\tvalues: \"Id is required\");\n\n";
                 }
-                else if (property.PropertyType == typeof(string))
+                else if (property.Value == "string")
                 {
                     validations += $"\t\t\t\tinvalid[[ModelName]]Exception.AddData(\n";
-                    validations += $"\t\t\t\t\tkey: nameof([[ModelName]].{property.Name}),\n";
+                    validations += $"\t\t\t\t\tkey: nameof([[ModelName]].{property.Key}),\n";
                     validations += $"\t\t\t\t\tvalues: \"Text is required\");\n\n";
                 }
-                else if (property.PropertyType == typeof(DateTimeOffset)
-                    && property.Name != "CreatedDate" && property.Name != "UpdatedDate")
+                else if (property.Value == "DateTimeOffset"
+                    && property.Key != "CreatedDate" && property.Key != "UpdatedDate")
                 {
                     validations += $"\t\t\t\tinvalid[[ModelName]]Exception.AddData(\n";
-                    validations += $"\t\t\t\t\tkey: nameof([[ModelName]].{property.Name}),\n";
+                    validations += $"\t\t\t\t\tkey: nameof([[ModelName]].{property.Key}),\n";
                     validations += $"\t\t\t\t\tvalues: \"Date is required\");\n\n";
                 }
             }
 
-            var nameProp = modelsNameProp[modelType];
+            var nameProp = Tokenizator.GetNamePropery(properties);
 
             var content = File.ReadAllText(
                 Path.Combine("..", "..", "..", StringConstants.Source, StringConstants.Tests, StringConstants.Validations, "EntityServiceTests.Validations.Modify.txt"))
@@ -624,7 +636,7 @@ namespace Easy.Services
                     .Replace("{{ProjectName}}", apiProjectName)
                     .Replace("{{NameSpace}}", $"{testProjectName}.Services.Foundations.{modelNamePlural}")
                     .Replace("{{Validations}}", validations)
-                    .Replace("{{NameProp}}", nameProp)
+                    .Replace("{{NameProp}}", nameProp.Property)
                     .Replace("{{ModelName}}", modelName)
                     .Replace("{{modelName}}", modelName.ToLowFirstLetter())
                     .Replace("{{ModelNamePlural}}", modelNamePlural)
@@ -635,41 +647,37 @@ namespace Easy.Services
             fileStream.Close();
         }
 
-        private void AddValidationsTestAdd(string modelName, string modelNamePlural, string modelTestsPath)
+        private void AddValidationsTestAdd(string modelName, string modelNamePlural, string modelTestsPath, Dictionary<string, string> properties)
         {
             var @namespace = $"{testProjectName}.Services.Foundations.{modelNamePlural}";
 
-            var modelType = models.FirstOrDefault(model => model.Name == modelName)
-                ?? throw new ArgumentException("You did not give type for model: " + modelName);
-            var modelProperties = modelType.GetProperties();
-            var namePropString = modelsNameProp[modelType]
-                ?? throw new Exception("You did not give name name property for model: " + modelName);
+            var nameProp = Tokenizator.GetNamePropery(properties);
 
             var validations = string.Empty;
-            foreach (var prop in modelProperties)
+            foreach (var prop in properties)
             {
-                if (prop.PropertyType == typeof(Guid))
+                if (prop.Value == "Guid")
                 {
                     validations += "\t\t\t\tinvalid[[ModelName]]Exception.AddData(\n";
-                    validations += $"\t\t\t\t\tkey: nameof([[ModelName]].{prop.Name}),\n";
+                    validations += $"\t\t\t\t\tkey: nameof([[ModelName]].{prop.Key}),\n";
                     validations += $"\t\t\t\t\tvalues: \"Id is required\");\n\n";
                 }
-                if (prop.PropertyType == typeof(string))
+                if (prop.Value == "string")
                 {
                     validations += "\t\t\t\tinvalid[[ModelName]]Exception.AddData(\n";
-                    validations += $"\t\t\t\t\tkey: nameof([[ModelName]].{prop.Name}),\n";
+                    validations += $"\t\t\t\t\tkey: nameof([[ModelName]].{prop.Key}),\n";
                     validations += $"\t\t\t\t\tvalues: \"Text is required\");\n\n";
                 }
-                if (prop.PropertyType == typeof(DateTimeOffset))
+                if (prop.Value == "DateTimeOffset")
                 {
                     validations += "\t\t\t\tinvalid[[ModelName]]Exception.AddData(\n";
-                    validations += $"\t\t\t\t\tkey: nameof([[ModelName]].{prop.Name}),\n";
+                    validations += $"\t\t\t\t\tkey: nameof([[ModelName]].{prop.Key}),\n";
                     validations += $"\t\t\t\t\tvalues: \"Date is required\");\n\n";
                 }
             }
 
             var content = File.ReadAllText(Path.Combine("..", "..", "..", StringConstants.Source, StringConstants.Tests, StringConstants.Validations, "EntityServiceTests.Validations.Add.txt"))
-                .Replace("{{NameProp}}", namePropString)
+                .Replace("{{NameProp}}", nameProp.Property)
                 .Replace("{{Validations}}", validations)
                 .Replace("{{Header}}", this.header)
                 .Replace("{{ProjectName}}", apiProjectName)

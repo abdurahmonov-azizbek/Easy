@@ -12,3 +12,4 @@ D:\PROJECTS\Easy\obj\Debug\net8.0\refint\Easy.dll
 D:\PROJECTS\Easy\obj\Debug\net8.0\Easy.pdb
 D:\PROJECTS\Easy\obj\Debug\net8.0\Easy.genruntimeconfig.cache
 D:\PROJECTS\Easy\obj\Debug\net8.0\ref\Easy.dll
+D:\PROJECTS\Easy\obj\Debug\net8.0\Easy.sourcelink.json
